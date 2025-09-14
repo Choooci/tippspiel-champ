@@ -468,7 +468,8 @@ def show_app():
 
 
     def erstelle_bestenliste(saison_keys, titel, platz4_holz=False):
-    gesamtpunkte = {}
+        gesamtpunkte = {}
+
         for key in saison_keys:
             listen = tipps_dict[key]
             url = season_api_urls[key]
@@ -476,8 +477,10 @@ def show_app():
             if response.status_code != 200:
                 st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
                 continue
+
             data = response.json()
             df_saison = pd.DataFrame([{"Team": team["teamName"], "Punkte": team["points"]} for team in data])
+            
             for name, teams in listen.items():
                 if name not in gesamtpunkte:
                     gesamtpunkte[name] = 0
