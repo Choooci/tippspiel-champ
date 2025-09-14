@@ -468,23 +468,31 @@ def show_app():
 
 
     def erstelle_bestenliste(saison_keys, titel, platz4_holz=False):
+    # Summiere Punkte über alle angegebenen Saisons
         gesamtpunkte = {}
-            for key in saison_keys:
-                listen = tipps_dict[key]
-                url = season_api_urls[key]
-                response = requests.get(url)
-                if response.status_code != 200:
-                    st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
-                    continue
-                data = response.json()
-                df_saison = pd.DataFrame([{"Team": team["teamName"], "Punkte": team["points"]} for team in data])
-                for name, teams in listen.items():
-                    if name not in gesamtpunkte:
-                        gesamtpunkte[name] = 0
-                    for team in teams:
-                        team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
-                        if not team_data.empty:
-                            gesamtpunkte[name] += int(team_data.iloc[0])
+
+        for key in saison_keys:
+            listen = tipps_dict[key]
+            url = season_api_urls[key]
+            response = requests.get(url)
+
+            if response.status_code != 200:
+                st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
+                continue
+
+            data = response.json()
+            df_saison = pd.DataFrame([{
+                "Team": team["teamName"],
+                "Punkte": team["points"]
+            } for team in data])
+
+            for name, teams in listen.items():
+                if name not in gesamtpunkte:
+                    gesamtpunkte[name] = 0
+                for team in teams:
+                    team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
+                    if not team_data.empty:
+                        gesamtpunkte[name] += int(team_data.iloc[0])
 
         # Direkt hier die Anzeige machen:
         bestenliste_df = pd.DataFrame(gesamtpunkte.items(), columns=["Name", "Gesamtpunkte"])
