@@ -469,19 +469,28 @@ def show_app():
 
     # --- Bestenliste ---
     def erstelle_bestenliste(saison_keys, titel, platz4_holz=False):
-        # Summiere Punkte über alle angegebenen Saisons
         gesamtpunkte = {}
         for key in saison_keys:
             listen = tipps_dict[key]
-            url = f'https://www.kicker.de/bundesliga/tabelle/{season_dict[key]}'
-            df_saison = pd.read_html(url)[0]
+            url = season_api_urls[key]  # API statt Kicker HTML
+            response = requests.get(url)
+            if response.status_code != 200:
+                st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
+                continue
+
+            data = response.json()
+            df_saison = pd.DataFrame([{
+                "Team": team["teamName"],
+                "Punkte": team["points"]
+            } for team in data])
+
             for name, teams in listen.items():
                 if name not in gesamtpunkte:
                     gesamtpunkte[name] = 0
                 for team in teams:
                     team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
                     if not team_data.empty:
-                        gesamtpunkte[name] += team_data.iloc[0]
+                        gesamtpunkte[name] += int(team_data.iloc[0])
 
         best_df = pd.DataFrame(
             [(name, punkte) for name, punkte in gesamtpunkte.items()],
@@ -517,15 +526,12 @@ def show_app():
         st.markdown(f"### {titel}")
         st.dataframe(best_df_display.style.apply(highlight_top4_bl, axis=1), use_container_width=True, hide_index=True)
 
-
-    # --- Aufrufe innerhalb von show_app() ---
     # Bestenliste 3 Personen: Saison 2022-23 & 2023-24
     erstelle_bestenliste([1, 2], "Beste 3 Personen (Saison 2022-23 & 2023-24)")
 
     # Bestenliste 4 Personen: Saison 2024-25 und später
     spaetere_saisons = [k for k in season_dict if k >= 3]
     erstelle_bestenliste(spaetere_saisons, "Beste 4 Personen (Saison ab 2024-25)", platz4_holz=True)
-
 
 
 
