@@ -467,8 +467,8 @@ def show_app():
     """, unsafe_allow_html=True)
 
 
+    # --- Funktion Bestenliste ---
     def erstelle_bestenliste(saison_keys, titel, platz4_holz=False):
-    # Summiere Punkte über alle angegebenen Saisons
         gesamtpunkte = {}
 
         for key in saison_keys:
@@ -494,38 +494,21 @@ def show_app():
                     if not team_data.empty:
                         gesamtpunkte[name] += int(team_data.iloc[0])
 
-        # Direkt hier die Anzeige machen:
+        # Ergebnisse sortieren
         bestenliste_df = pd.DataFrame(gesamtpunkte.items(), columns=["Name", "Gesamtpunkte"])
         bestenliste_df = bestenliste_df.sort_values(by="Gesamtpunkte", ascending=False).reset_index(drop=True)
 
-        # Emojis Top4
-        bestenliste_df['Platzierung'] = range(1, len(bestenliste_df)+1)
-        def emoji_top4(p):
-            if p==1: return f"🥇 {p}"
-            elif p==2: return f"🥈 {p}"
-            elif p==3: return f"🥉 {p}"
-            elif p==4 and platz4_holz: return f"🪵 {p}"
-            else: return str(p)
-        bestenliste_df['Platzierung'] = bestenliste_df['Platzierung'].apply(emoji_top4)
+        st.subheader(titel)
+        st.table(bestenliste_df)
 
-        def highlight_top4_bl(row):
-            platz = int(''.join(filter(str.isdigit, str(row['Platzierung']))))
-            if platz==1: return ['background-color:#fff9e6; font-weight:bold; text-align:center']*len(row)
-            elif platz==2: return ['background-color:#f2f2f2; font-weight:bold; text-align:center']*len(row)
-            elif platz==3: return ['background-color:#f7e6d9; font-weight:bold; text-align:center']*len(row)
-            elif platz==4 and platz4_holz: return ['background-color:#e6f0ff; font-weight:bold; text-align:center']*len(row)
-            else: return ['']*len(row)
-
-    st.subheader(titel)
-    st.dataframe(bestenliste_df.style.apply(highlight_top4_bl, axis=1), use_container_width=True, hide_index=True)
-
-
+    # --- Aufrufe innerhalb von show_app() ---
     # Bestenliste 3 Personen: Saison 2022-23 & 2023-24
-    erstelle_bestenliste([1,2], "Beste 3 Personen (Saison 2022-23 & 2023-24)")
+    erstelle_bestenliste([1, 2], "Beste 3 Personen (Saison 2022-23 & 2023-24)")
 
     # Bestenliste 4 Personen: Saison 2024-25 und später
-    spaetere_saisons = [k for k in season_dict if k >=3]
+    spaetere_saisons = [k for k in season_dict if k >= 3]
     erstelle_bestenliste(spaetere_saisons, "Beste 4 Personen (Saison ab 2024-25)", platz4_holz=True)
+
 
 
 
