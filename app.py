@@ -274,10 +274,13 @@ def show_app():
     for name, daten in ergebnisse.items():
         st.markdown(f"**{name}**")
         st.markdown(f'<div style="background-color:{farben.get(name,"white")}; padding:5px; border-radius:5px;">', unsafe_allow_html=True)
+        
         for team, punkte in daten[2]:
             info = teams_info.get(team, {"name": team, "logo": ""})
             team_name = info["name"]
             logo_path = info["logo"]
+
+            # Logo als Base64
             if logo_path and Path(logo_path).exists():
                 img = Image.open(logo_path)
                 w,h = img.size
@@ -289,17 +292,19 @@ def show_app():
                 logo_html = f"<img src='data:image/png;base64,{img_b64}' height='{logo_hoehe}px' style='display:block; margin:auto;'>"
             else:
                 logo_html = ""
+
             st.markdown(
                 f"""
-                <div style='display:flex; align-items:center; height:{zeilen_hoehe}px; padding:2px 0'>
+                <div style='display:flex; align-items:center; height:{zeilen_hoehe}px; padding:2px 0;'>
                     <div style='width:{logo_breite_max}px; display:flex; justify-content:center;'>{logo_html}</div>
-                    <div style='flex:4; padding-left:10px'>{team_name}</div>
-                    <div style='flex:1; text-align:right'>{punkte} Punkte</div>
+                    <div style='flex:4; padding-left:5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{team_name}</div>
+                    <div style='flex:1; text-align:right; white-space: nowrap;'>{punkte} Punkte</div>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
         st.markdown("</div>", unsafe_allow_html=True)
+
 
     # --- Abstand und Linie ---
     st.markdown("<hr><br>", unsafe_allow_html=True)
