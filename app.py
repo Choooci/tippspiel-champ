@@ -390,59 +390,59 @@ def show_app():
     logo_breite_max = 70
 
     try:
-    url = season_api_urls[season_key]
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        df = pd.DataFrame([{
-            "Team": team["teamName"],
-            "Kurzname": team.get("shortName", ""),
-            "Punkte": team["points"],
-            "Sp.": team["matches"],
-            "Siege": team["won"],
-            "Unentschieden": team["draw"],
-            "Niederlagen": team["lost"],
-            "Tordifferenz": team["goalDiff"]
-        } for team in data])
+        url = season_api_urls[season_key]
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            df = pd.DataFrame([{
+                "Team": team["teamName"],
+                "Kurzname": team.get("shortName", ""),
+                "Punkte": team["points"],
+                "Sp.": team["matches"],
+                "Siege": team["won"],
+                "Unentschieden": team["draw"],
+                "Niederlagen": team["lost"],
+                "Tordifferenz": team["goalDiff"]
+            } for team in data])
 
-        # Nur die Top-6 Teams auswählen
-        top6_df = df.head(6).copy()
+            # Nur die Top-6 Teams auswählen
+            top6_df = df.head(6).copy()
 
-        # Spalten anpassen: nur Team und Punkte
-        if 'Team' in top6_df.columns and 'Punkte' in top6_df.columns:
-            top6_df = top6_df[['Team','Punkte']]
-        elif 'Mannschaft' in top6_df.columns and 'Punkte' in top6_df.columns:
-            top6_df = top6_df[['Mannschaft','Punkte']]
-            top6_df.rename(columns={'Mannschaft':'Team'}, inplace=True)
+            # Spalten anpassen: nur Team und Punkte
+            if 'Team' in top6_df.columns and 'Punkte' in top6_df.columns:
+                top6_df = top6_df[['Team','Punkte']]
+            elif 'Mannschaft' in top6_df.columns and 'Punkte' in top6_df.columns:
+                top6_df = top6_df[['Mannschaft','Punkte']]
+                top6_df.rename(columns={'Mannschaft':'Team'}, inplace=True)
 
-        for i, row in top6_df.iterrows():
-            team_key = row['Team'].split()[0]  # erster Teil des Namens als Schlüssel
-            info = teams_info.get(team_key, {"name": row['Team'], "logo": ""})
-            team_name = info["name"]
-            logo_path = info["logo"]
+            for i, row in top6_df.iterrows():
+                team_key = row['Team'].split()[0]  # erster Teil des Namens als Schlüssel
+                info = teams_info.get(team_key, {"name": row['Team'], "logo": ""})
+                team_name = info["name"]
+                logo_path = info["logo"]
 
-            if logo_path and Path(logo_path).exists():
-                img = Image.open(logo_path)
-                w,h = img.size
-                neu_w = int((logo_hoehe/h)*w)
-                img = img.resize((neu_w, logo_hoehe))
-                buffered = BytesIO()
-                img.save(buffered, format="PNG")
-                img_b64 = base64.b64encode(buffered.getvalue()).decode()
-                logo_html = f"<img src='data:image/png;base64,{img_b64}' height='{logo_hoehe}px' style='display:block; margin:auto;'>"
-            else:
-                logo_html = ""
+                if logo_path and Path(logo_path).exists():
+                    img = Image.open(logo_path)
+                    w,h = img.size
+                    neu_w = int((logo_hoehe/h)*w)
+                    img = img.resize((neu_w, logo_hoehe))
+                    buffered = BytesIO()
+                    img.save(buffered, format="PNG")
+                    img_b64 = base64.b64encode(buffered.getvalue()).decode()
+                    logo_html = f"<img src='data:image/png;base64,{img_b64}' height='{logo_hoehe}px' style='display:block; margin:auto;'>"
+                else:
+                    logo_html = ""
 
-            st.markdown(
-                f"""
-                <div style='display:flex; align-items:center; height:{zeilen_hoehe}px; padding:2px 0; border-bottom:1px solid #f0f0f0;'>
-                    <div style='width:{logo_breite_max}px; display:flex; justify-content:center;'>{logo_html}</div>
-                    <div style='flex:4; padding-left:10px'>{team_name}</div>
-                    <div style='flex:1; text-align:right'>{row['Punkte']} Punkte</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+                st.markdown(
+                    f"""
+                    <div style='display:flex; align-items:center; height:{zeilen_hoehe}px; padding:2px 0; border-bottom:1px solid #f0f0f0;'>
+                        <div style='width:{logo_breite_max}px; display:flex; justify-content:center;'>{logo_html}</div>
+                        <div style='flex:4; padding-left:10px'>{team_name}</div>
+                        <div style='flex:1; text-align:right'>{row['Punkte']} Punkte</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
     except Exception as e:
         st.error(f"Die Top-6 Tabelle konnte nicht geladen werden: {e}")
