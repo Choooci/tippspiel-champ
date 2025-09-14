@@ -110,9 +110,21 @@ def show_app():
     st.set_page_config(page_title="⚽ Bundesliga Tippspiel Champs", layout="centered")
     st.title("⚽ Bundesliga Tippspiel Champs")
 
-    # --- Saison Navigation ---
+    # --- Shortcut-Menü ---
+    st.sidebar.markdown("### ⚡ Quick Links")
+    st.sidebar.markdown("""
+    - [🏆 Rangliste](#rangliste)
+    - [📋 Einzelteams](#einzelteams)
+    - [💸 Einsatz-Regeln](#einsatzregeln)
+    - [⭐ Top-6 Tipps](#top6tipps)
+    - [🏆 Bundesliga Top-6](#bundesligatop6)
+    - [🏅 Bestenliste](#bestenliste)
+    - [📊 Statistik](#statistik)
+    """, unsafe_allow_html=True)
+
+    # --- Saisonwahl: Startwert = aktuelle Saison (4) ---
     if "season_index" not in st.session_state:
-        st.session_state.season_index = 3
+        st.session_state.season_index = 4
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
@@ -378,11 +390,23 @@ def show_app():
     logo_breite_max = 70
 
     try:
-        url_standard = f'https://www.kicker.de/bundesliga/tabelle/{season}'
-        kicker_df = pd.read_html(url_standard)[0]
+    url = season_api_urls[season_key]
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame([{
+            "Team": team["teamName"],
+            "Kurzname": team.get("shortName", ""),
+            "Punkte": team["points"],
+            "Sp.": team["matches"],
+            "Siege": team["won"],
+            "Unentschieden": team["draw"],
+            "Niederlagen": team["lost"],
+            "Tordifferenz": team["goalDiff"]
+        } for team in data])
 
-        # Nur Top-6 Zeilen
-        top6_df = kicker_df.head(6).copy()
+        # Nur die Top-6 Teams auswählen
+        top6_df = df.head(6).copy()
 
         # Spalten anpassen: nur Team und Punkte
         if 'Team' in top6_df.columns and 'Punkte' in top6_df.columns:
@@ -447,24 +471,34 @@ def show_app():
         # Summiere Punkte über alle angegebenen Saisons
         gesamtpunkte = {}
         for key in saison_keys:
-            listen = tipps_dict[key]
-            url = f'https://www.kicker.de/bundesliga/tabelle/{season_dict[key]}'
-            df_saison = pd.read_html(url)[0]
-            for name, teams in listen.items():
-                if name not in gesamtpunkte:
-                    gesamtpunkte[name] = 0
-                for team in teams:
-                    team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
-                    if not team_data.empty:
-                        gesamtpunkte[name] += team_data.iloc[0]
+        listen = tipps_dict[key]
+        url = season_api_urls[key]
+        response = requests.get(url)
 
-        best_df = pd.DataFrame(
-            [(name, punkte) for name, punkte in gesamtpunkte.items()],
-            columns=['Name','Punkte']
-        )
-        best_df = best_df.sort_values('Punkte', ascending=True).reset_index(drop=True)
-        best_df['Platzierung'] = range(1, len(best_df)+1)
-        best_df = best_df[['Platzierung','Name','Punkte']]
+        if response.status_code != 200:
+            st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
+            continue
+
+        data = response.json()
+        df_saison = pd.DataFrame([{
+            "Team": team["teamName"],
+            "Punkte": team["points"]
+        } for team in data])
+
+        for name, teams in listen.items():
+            if name not in gesamtpunkte:
+                gesamtpunkte[name] = 0
+            for team in teams:
+                team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
+                if not team_data.empty:
+                    gesamtpunkte[name] += int(team_data.iloc[0])
+
+    # Ergebnisse sortieren
+    bestenliste_df = pd.DataFrame(gesamtpunkte.items(), columns=["Name", "Gesamtpunkte"])
+    bestenliste_df = bestenliste_df.sort_values(by="Gesamtpunkte", ascending=False).reset_index(drop=True)
+
+    st.subheader(titel)
+    st.table(bestenliste_df)
 
         # Emojis Top4
         best_df_display = best_df.copy()
