@@ -1,4 +1,6 @@
 streamlit
 pandas
 Pillow
-
+lxml
+html5lib
+requests
