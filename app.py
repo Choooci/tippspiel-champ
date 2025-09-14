@@ -469,59 +469,56 @@ def show_app():
 
     def erstelle_bestenliste(saison_keys, titel, platz4_holz=False):
         gesamtpunkte = {}
+            for key in saison_keys:
+                listen = tipps_dict[key]
+                url = season_api_urls[key]
+                response = requests.get(url)
+                if response.status_code != 200:
+                    st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
+                    continue
+                data = response.json()
+                df_saison = pd.DataFrame([{"Team": team["teamName"], "Punkte": team["points"]} for team in data])
+                for name, teams in listen.items():
+                    if name not in gesamtpunkte:
+                        gesamtpunkte[name] = 0
+                    for team in teams:
+                        team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
+                        if not team_data.empty:
+                            gesamtpunkte[name] += int(team_data.iloc[0])
 
-        for key in saison_keys:
-            listen = tipps_dict[key]
-            url = season_api_urls[key]
-            response = requests.get(url)
-            if response.status_code != 200:
-                st.error(f"Bestenliste: Tabelle für Saison {season_dict[key]} konnte nicht geladen werden.")
-                continue
+        # Direkt hier die Anzeige machen:
+        bestenliste_df = pd.DataFrame(gesamtpunkte.items(), columns=["Name", "Gesamtpunkte"])
+        bestenliste_df = bestenliste_df.sort_values(by="Gesamtpunkte", ascending=False).reset_index(drop=True)
 
-            data = response.json()
-            df_saison = pd.DataFrame([{"Team": team["teamName"], "Punkte": team["points"]} for team in data])
-            
-            for name, teams in listen.items():
-                if name not in gesamtpunkte:
-                    gesamtpunkte[name] = 0
-                for team in teams:
-                    team_data = df_saison.loc[df_saison['Team'].str.contains(team, case=False), 'Punkte']
-                    if not team_data.empty:
-                        gesamtpunkte[name] += int(team_data.iloc[0])
+        # Emojis Top4
+        bestenliste_df['Platzierung'] = range(1, len(bestenliste_df)+1)
+        def emoji_top4(p):
+            if p==1: return f"🥇 {p}"
+            elif p==2: return f"🥈 {p}"
+            elif p==3: return f"🥉 {p}"
+            elif p==4 and platz4_holz: return f"🪵 {p}"
+            else: return str(p)
+        bestenliste_df['Platzierung'] = bestenliste_df['Platzierung'].apply(emoji_top4)
 
-    # Ergebnisse sortieren
-    bestenliste_df = pd.DataFrame(gesamtpunkte.items(), columns=["Name", "Gesamtpunkte"])
-    bestenliste_df = bestenliste_df.sort_values(by="Gesamtpunkte", ascending=False).reset_index(drop=True)
-
-    # Emojis Top4
-    best_df_display = bestenliste_df.copy()
-    best_df_display['Platzierung'] = range(1, len(best_df_display)+1)
-    def emoji_top4(p):
-        if p==1: return f"🥇 {p}"
-        elif p==2: return f"🥈 {p}"
-        elif p==3: return f"🥉 {p}"
-        elif p==4 and platz4_holz: return f"🪵 {p}"
-        else: return str(p)
-        best_df_display['Platzierung'] = best_df_display['Platzierung'].apply(emoji_top4)
-
-    def highlight_top4_bl(row):
-        platz = int(''.join(filter(str.isdigit,str(row['Platzierung']))))
-        if platz==1: return ['background-color:#fff9e6; font-weight:bold; text-align:center']*len(row)
-        elif platz==2: return ['background-color:#f2f2f2; font-weight:bold; text-align:center']*len(row)
-        elif platz==3: return ['background-color:#f7e6d9; font-weight:bold; text-align:center']*len(row)
-        elif platz==4 and platz4_holz: return ['background-color:#e6f0ff; font-weight:bold; text-align:center']*len(row)
-        else: return ['']*len(row)
+        def highlight_top4_bl(row):
+            platz = int(''.join(filter(str.isdigit, str(row['Platzierung']))))
+            if platz==1: return ['background-color:#fff9e6; font-weight:bold; text-align:center']*len(row)
+            elif platz==2: return ['background-color:#f2f2f2; font-weight:bold; text-align:center']*len(row)
+            elif platz==3: return ['background-color:#f7e6d9; font-weight:bold; text-align:center']*len(row)
+            elif platz==4 and platz4_holz: return ['background-color:#e6f0ff; font-weight:bold; text-align:center']*len(row)
+            else: return ['']*len(row)
 
     st.subheader(titel)
-    st.dataframe(best_df_display.style.apply(highlight_top4_bl, axis=1), use_container_width=True, hide_index=True)
+    st.dataframe(bestenliste_df.style.apply(highlight_top4_bl, axis=1), use_container_width=True, hide_index=True)
 
 
     # Bestenliste 3 Personen: Saison 2022-23 & 2023-24
-    erstelle_bestenliste([1,2], "Beste 3 Personen (Saison 2022-23 & 2023-24")
+    erstelle_bestenliste([1,2], "Beste 3 Personen (Saison 2022-23 & 2023-24)")
 
     # Bestenliste 4 Personen: Saison 2024-25 und später
     spaetere_saisons = [k for k in season_dict if k >=3]
     erstelle_bestenliste(spaetere_saisons, "Beste 4 Personen (Saison ab 2024-25)", platz4_holz=True)
+
 
 
     # --- Abstand und Linie ---
