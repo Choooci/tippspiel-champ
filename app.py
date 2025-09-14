@@ -381,6 +381,7 @@ def show_app():
 
 
     # --- Bundesliga Top-6 Tabelle schöner anzeigen wie Einzelteams ---
+    # --- Bundesliga Top-6 Tabelle schöner anzeigen wie Einzelteams ---
     st.markdown('<a id="bundesligatop6"></a>', unsafe_allow_html=True)
     st.markdown("<hr><br>", unsafe_allow_html=True)
     st.subheader(f"🏆 Bundesliga Top-6 Saison - {season}")
@@ -408,19 +409,17 @@ def show_app():
             # Nur die Top-6 Teams auswählen
             top6_df = df.head(6).copy()
 
-            # Spalten anpassen: nur Team und Punkte
-            if 'Team' in top6_df.columns and 'Punkte' in top6_df.columns:
-                top6_df = top6_df[['Team','Punkte']]
-            elif 'Mannschaft' in top6_df.columns and 'Punkte' in top6_df.columns:
-                top6_df = top6_df[['Mannschaft','Punkte']]
-                top6_df.rename(columns={'Mannschaft':'Team'}, inplace=True)
-
             for i, row in top6_df.iterrows():
-                team_key = row['Team'].split()[0]  # erster Teil des Namens als Schlüssel
-                info = teams_info.get(team_key, {"name": row['Team'], "logo": ""})
+                # Team-Name direkt matchen (case-insensitive) statt split()[0]
+                team_name_lookup = next(
+                    (key for key in teams_info if key.lower() in row['Team'].lower()), 
+                    None
+                )
+                info = teams_info.get(team_name_lookup, {"name": row['Team'], "logo": ""})
                 team_name = info["name"]
                 logo_path = info["logo"]
 
+                # Logo als Base64
                 if logo_path and Path(logo_path).exists():
                     img = Image.open(logo_path)
                     w,h = img.size
@@ -433,12 +432,13 @@ def show_app():
                 else:
                     logo_html = ""
 
+                # Flexbox anpassen: kleineren Abstand, nowrap, Punkte rechts
                 st.markdown(
                     f"""
                     <div style='display:flex; align-items:center; height:{zeilen_hoehe}px; padding:2px 0; border-bottom:1px solid #f0f0f0;'>
                         <div style='width:{logo_breite_max}px; display:flex; justify-content:center;'>{logo_html}</div>
-                        <div style='flex:4; padding-left:10px'>{team_name}</div>
-                        <div style='flex:1; text-align:right'>{row['Punkte']} Punkte</div>
+                        <div style='flex:4; padding-left:5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;'>{team_name}</div>
+                        <div style='flex:1; text-align:right; white-space: nowrap;'>{row['Punkte']} Punkte</div>
                     </div>
                     """,
                     unsafe_allow_html=True
@@ -446,6 +446,7 @@ def show_app():
 
     except Exception as e:
         st.error(f"Die Top-6 Tabelle konnte nicht geladen werden: {e}")
+
 
 
 
