@@ -499,7 +499,7 @@ def show_app():
         elif p==3: return f"🥉 {p}"
         elif p==4 and platz4_holz: return f"🪵 {p}"
         else: return str(p)
-    best_df_display['Platzierung'] = best_df_display['Platzierung'].apply(emoji_top4)
+        best_df_display['Platzierung'] = best_df_display['Platzierung'].apply(emoji_top4)
 
     def highlight_top4_bl(row):
         platz = int(''.join(filter(str.isdigit,str(row['Platzierung']))))
