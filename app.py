@@ -1,5 +1,8 @@
+# bundesliga_tippspiel.py
+
 import streamlit as st
 import pandas as pd
+import requests
 from pathlib import Path
 from PIL import Image
 import base64
@@ -7,168 +10,153 @@ from io import BytesIO
 
 # --- Passwortschutz ---
 PASSWORT = "040822"
-
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+# --- Saison-Infos ---
+season_dict = {
+    1: '2022-23',
+    2: '2023-24',
+    3: '2024-25',
+    4: '2025-26'
+}
+
+# --- OpenLigaDB URLs nach Saison ---
+season_api_urls = {
+    1: "https://www.openligadb.de/api/getbltable/bl1/2022",
+    2: "https://www.openligadb.de/api/getbltable/bl1/2023",
+    3: "https://www.openligadb.de/api/getbltable/bl1/2024",
+    4: "https://www.openligadb.de/api/getbltable/bl1/2025",
+}
+
+# --- Tipp-Listen ---
+paul1 = ["Schalke", "Bremen", "Hoffenheim", "Mainz"]
+tuschi1 = ["Hertha", "Augsburg", "Union", "Gladbach"]
+choci1 = ["Bochum", "Stuttgart", "Köln", "Freiburg"]
+paul2 = ["Bochum", "Hoffenheim", "Köln", "Frankfurt"]
+tuschi2 = ["Darmstadt", "Bremen", "Stuttgart", "Gladbach"]
+choci2 = ["Heidenheim", "Augsburg", "Mainz", "Wolfsburg"]
+dan3 = ["Heidenheim", "Bremen", "Augsburg", "Dortmund"]
+paul3 = ["Kiel", "Mainz", "Wolfsburg", "Frankfurt"]
+tuschi3 = ["Union", "Pauli", "Freiburg", "Stuttgart"]
+choci3 = ["Bochum", "Hoffenheim", "Gladbach", "Leipzig"]
+dan4 = ["Köln", "Bremen", "Augsburg", "Dortmund"]
+paul4 = ["Hamburg", "Union", "Leipzig", "Leverkusen"]
+tuschi4 = ["Heidenheim", "Gladbach", "Pauli", "Freiburg"]
+choci4 = ["Hoffenheim", "Mainz", "Wolfsburg", "Stuttgart"]
+
+tipps_dict = {
+    1: {"Paul": paul1, "Tuschi": tuschi1, "Choci": choci1},
+    2: {"Paul": paul2, "Tuschi": tuschi2, "Choci": choci2},
+    3: {"Dan": dan3, "Paul": paul3, "Tuschi": tuschi3, "Choci": choci3},
+    4: {"Dan": dan4, "Paul": paul4, "Tuschi": tuschi4, "Choci": choci4},
+}
+
+# --- Top-6 Tipps ---
+top6_tipps = {
+    1: {
+        "Paul": ["Bayern", "Dortmund", "Leipzig", "Leverkusen", "Gladbach", "Wolfsburg"],
+        "Tuschi": ["Bayern", "Leipzig", "Dortmund", "Frankfurt", "Leverkusen", "Hoffenheim"],
+        "Choci": ["-", "Leverkusen", "Dortmund", "RB Scheiße", "Wolfsburg", "Frankfurt"],
+    },
+    2: {
+        "Paul": ["Leverkusen", "Bayern", "Dosenkacke", "DasTeammitMatsHummels", "Union", "Gladbach"],
+        "Tuschi": ["Harry Kane", "Vizekusen", "Dortmund", "Leipzig", "Union", "Frankfurt"],
+        "Choci": ["Kevin Volland", "FC Bauern", "Vizekusen", "Doofmund", "Dosenverein", "Frankfurt"],
+    },
+    3: {
+        "Dan": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
+        "Paul": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
+        "Tuschi": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
+        "Choci": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
+    },
+    4: {
+        "Dan": ["Bayern", "Frankfurt", "Dortmund", "Stuttgart", "Lverkusen", "Leipzig"],
+        "Paul": ["Bayern", "Frankfurt", "Stuhlgang", "Dortmund", "Freiburg", "Leverkusen"],
+        "Tuschi": ["Bayern", "Dortmund", "Frankfurt", "Scheißig", "Stuttgart", "Leverkusen", "Augsburg"],
+        "Choci": ["Im Herzen von Europa liegt die Eintracht am Main", "FC Bauern", "Freiburg", "Leverbusen", "Dortmund", "Stuttgart"],
+    }
+}
+
+# --- Teams Informationen ---
+teams_info = {
+    "Köln": {"name": "1. FC Köln", "logo": "Logos/Koeln.png"},
+    "Bremen": {"name": "Werder Bremen", "logo": "Logos/Bremen.png"},
+    "Augsburg": {"name": "FC Augsburg", "logo": "Logos/Augsburg.png"},
+    "Dortmund": {"name": "Borussia Dortmund", "logo": "Logos/Dortmund.png"},
+    "Hamburg": {"name": "Hamburger SV", "logo": "Logos/Hamburg.png"},
+    "Union": {"name": "1. FC Union Berlin", "logo": "Logos/Union.png"},
+    "Leipzig": {"name": "RB Leipzig", "logo": "Logos/Leipzig.png"},
+    "Leverkusen": {"name": "Bayer 04 Leverkusen", "logo": "Logos/Leverkusen.png"},
+    "Heidenheim": {"name": "1. FC Heidenheim 1846", "logo": "Logos/Heidenheim.png"},
+    "Gladbach": {"name": "Borussia Mönchengladbach", "logo": "Logos/Gladbach.png"},
+    "Pauli": {"name": "FC St. Pauli", "logo": "Logos/Pauli.png"},
+    "Freiburg": {"name": "SC Freiburg", "logo": "Logos/Freiburg.png"},
+    "Hoffenheim": {"name": "TSG Hoffenheim", "logo": "Logos/Hoffenheim.png"},
+    "Mainz": {"name": "1. FSV Mainz 05", "logo": "Logos/Mainz.png"},
+    "Wolfsburg": {"name": "VfL Wolfsburg", "logo": "Logos/Wolfsburg.png"},
+    "Stuttgart": {"name": "VfB Stuttgart", "logo": "Logos/Stuttgart.png"},
+    "Frankfurt": {"name": "Eintracht Frankfurt", "logo": "Logos/Frankfurt.png"},
+    "Darmstadt": {"name": "SV Darmstadt 98", "logo": "Logos/Darmstadt.png"},
+    "Bochum": {"name": "VfL Bochum", "logo": "Logos/Bochum.png"},
+    "Kiel": {"name": "Holstein Kiel", "logo": "Logos/Kiel.png"},
+    "Hertha": {"name": "Hertha BSC", "logo": "Logos/Hertha.png"},
+    "Schalke": {"name": "FC Schalke 04", "logo": "Logos/Schalke.png"},
+    "Bayern": {"name": "FC Bauern München", "logo": "Logos/Bayern.png"},
+}
+
+# --- Haupt-App ---
 def show_app():
-    # --- Tipp-Listen ---
-    paul1 = ["Schalke", "Bremen", "Hoffenheim", "Mainz"]
-    tuschi1 = ["Hertha", "Augsburg", "Union", "Gladbach"]
-    choci1 = ["Bochum", "Stuttgart", "Köln", "Freiburg"]
-
-    paul2 = ["Bochum", "Hoffenheim", "Köln", "Frankfurt"]
-    tuschi2 = ["Darmstadt", "Bremen", "Stuttgart", "Gladbach"]
-    choci2 = ["Heidenheim", "Augsburg", "Mainz", "Wolfsburg"]
-
-    dan3 = ["Heidenheim", "Bremen", "Augsburg", "Dortmund"]
-    paul3 = ["Kiel", "Mainz", "Wolfsburg", "Frankfurt"]
-    tuschi3 = ["Union", "Pauli", "Freiburg", "Stuttgart"]
-    choci3 = ["Bochum", "Hoffenheim", "Gladbach", "Leipzig"]
-
-    dan4 = ["Köln", "Bremen", "Augsburg", "Dortmund"]
-    paul4 = ["Hamburg", "Union", "Leipzig", "Leverkusen"]
-    tuschi4 = ["Heidenheim", "Gladbach", "Pauli", "Freiburg"]
-    choci4 = ["Hoffenheim", "Mainz", "Wolfsburg", "Stuttgart"]
-
-
-
-
-
-    # --- Saison-Infos ---
-    season_dict = {
-        1: '2022-23',
-        2: '2023-24',
-        3: '2024-25',
-        4: '2025-26'
-    }
-
-    tipps_dict = {
-        1: {"Paul": paul1, "Tuschi": tuschi1, "Choci": choci1},
-        2: {"Paul": paul2, "Tuschi": tuschi2, "Choci": choci2},
-        3: {"Dan": dan3, "Paul": paul3, "Tuschi": tuschi3, "Choci": choci3},
-        4: {"Dan": dan4, "Paul": paul4, "Tuschi": tuschi4, "Choci": choci4},
-    }
-
-
-    # --- Top-6 Tipps pro Person pro Saison ---
-    # Oben definieren: welche Person tippt welche 6 Teams pro Saison
-    top6_tipps = {
-        1: {"Paul": ["Bayern", "Dortmund", "Leipzig", "Leverkusen", "Gladbach", "Wolfsburg"],
-            "Tuschi": ["Bayern", "Leipzig", "Dortmund", "Frankfurt", "Leverkusen", "Hoffenheim"],
-            "Choci": ["-", "Leverkusen", "Dortmund", "RB Scheiße", "Wolfsburg", "Frankfurt"]},
-
-        2: {"Paul": ["Leverkusen", "Bayern", "Dosenkacke", "DasTeammitMatsHummels", "Union", "Gladbach"],
-            "Tuschi": ["Harry Kane", "Vizekusen", "Dortmund", "Leipzig", "Union", "Frankfurt"],
-            "Choci": ["Kevin Volland", "FC Bauern", "Vizekusen", "Doofmund", "Dosenverein", "Frankfurt"]},
-        
-        3: {"Dan": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
-            "Paul": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
-            "Tuschi": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],
-            "Choci": ["nicht getippt wir dullis", "-", "-", "-", "-", "-"],},
-        
-        4: {"Dan": ["Bayern", "Frankfurt", "Dortmund", "Stuttgart", "Lverkusen", "Leipzig"],
-            "Paul": ["Bayern", "Frankfurt", "Stuhlgang", "Dortmund", "Freiburg", "Leverkusen"],
-            "Tuschi": ["Bayern", "Dortmund", "Frankfurt", "Scheißig", "Stuttgart", "Leverkusen", "Augsburg"],
-            "Choci": ["Im Herzen von Europa liegt die Eintracht am Main", "FC Bauern", "Freiburg", "Leverbusen", "Dortmund", "Stuttgart"]}
-    }
-
-
-
-
-    # --- Teams Informationen mit Logo-Pfad und echtem Namen ---
-    teams_info = {
-        "Köln": {"name": "1. FC Köln", "logo": "Logos/Koeln.png"},
-        "Bremen": {"name": "Werder Bremen", "logo": "Logos/Bremen.png"},
-        "Augsburg": {"name": "FC Augsburg", "logo": "Logos/Augsburg.png"},
-        "Dortmund": {"name": "Borussia Dortmund", "logo": "Logos/Dortmund.png"},
-        "Hamburg": {"name": "Hamburger SV", "logo": "Logos/Hamburg.png"},
-        "Union": {"name": "1. FC Union Berlin", "logo": "Logos/Union.png"},
-        "Leipzig": {"name": "RB Leipzig", "logo": "Logos/Leipzig.png"},
-        "Leverkusen": {"name": "Bayer 04 Leverkusen", "logo": "Logos/Leverkusen.png"},
-        "Heidenheim": {"name": "1. FC Heidenheim 1846", "logo": "Logos/Heidenheim.png"},
-        "Gladbach": {"name": "Borussia Mönchengladbach", "logo": "Logos/Gladbach.png"},
-        "Pauli": {"name": "FC St. Pauli", "logo": "Logos/Pauli.png"},
-        "Freiburg": {"name": "SC Freiburg", "logo": "Logos/Freiburg.png"},
-        "Hoffenheim": {"name": "TSG Hoffenheim", "logo": "Logos/Hoffenheim.png"},
-        "Mainz": {"name": "1. FSV Mainz 05", "logo": "Logos/Mainz.png"},
-        "Wolfsburg": {"name": "VfL Wolfsburg", "logo": "Logos/Wolfsburg.png"},
-        "Stuttgart": {"name": "VfB Stuttgart", "logo": "Logos/Stuttgart.png"},
-        "Frankfurt": {"name": "Eintracht Frankfurt", "logo": "Logos/Frankfurt.png"},
-        "Darmstadt": {"name": "SV Darmstadt 98", "logo": "Logos/Darmstadt.png"},
-        "Bochum": {"name": "VfL Bochum", "logo": "Logos/Bochum.png"},
-        "Kiel": {"name": "Holstein Kiel", "logo": "Logos/Kiel.png"},
-        "Hertha": {"name": "Hertha BSC", "logo": "Logos/Hertha.png"},
-        "Schalke": {"name": "FC Schalke 04", "logo": "Logos/Schalke.png"},
-        "Bayern": {"name": "FC Bauern München", "logo": "Logos/Bayern.png"}
-    }
-
-
-
-    # --- Streamlit UI ---
     st.set_page_config(page_title="⚽ Bundesliga Tippspiel Champs", layout="centered")
     st.title("⚽ Bundesliga Tippspiel Champs")
 
-
-    # --- Shortcut-Menü ---
-    st.sidebar.markdown("### ⚡ Quick Links")
-    st.sidebar.markdown("""
-    - [🏆 Rangliste](#rangliste)
-    - [📋 Einzelteams](#einzelteams)
-    - [💸 Einsatz-Regeln](#einsatzregeln)
-    - [⭐ Top-6 Tipps](#top6tipps)
-    - [🏆 Bundesliga Top-6](#bundesligatop6)
-    - [🏅 Bestenliste](#bestenliste)
-    - [📊 Statistik](#statistik)
-    """, unsafe_allow_html=True)
-
-
-
-    # --- Abstand und Linie ---
-    st.markdown("<hr><br>", unsafe_allow_html=True)
-
-
-
-    # --- Saison Navigation (Vor-/Zurück) ---
+    # --- Saison Navigation ---
     if "season_index" not in st.session_state:
-        st.session_state.season_index = 3  # Startwert: aktuelle Saison 2025-26
+        st.session_state.season_index = 3
 
-    col1, col2, col3 = st.columns([1,2,1])
-
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if st.button("⬅️ vorherige Saison"):
             st.session_state.season_index = max(1, st.session_state.season_index - 1)
-
     with col3:
         if st.button("➡️ nächste Saison"):
             st.session_state.season_index = min(len(season_dict), st.session_state.season_index + 1)
 
-    # Anzeige der aktuell gewählten Saison
     season_key = st.session_state.season_index
     season = season_dict[season_key]
+
     st.write(f"**Aktuelle Saison:** Bundesliga {season}")
     st.write(f"**Saison im Tippspiel:** {season_key}")
 
-
-
-
-
-
-
-    # --- Tabelle laden ---
-    url_standard = f'https://www.kicker.de/bundesliga/tabelle/{season}'
-    df = pd.read_html(url_standard)[0]
+    # --- Tabelle laden über API ---
+    url = season_api_urls[season_key]
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame([{
+            "Team": team["teamName"],
+            "Kurzname": team.get("shortName", ""),
+            "Punkte": team["points"],
+            "Sp.": team["matches"],
+            "Siege": team["won"],
+            "Unentschieden": team["draw"],
+            "Niederlagen": team["lost"],
+            "Tordifferenz": team["goalDiff"]
+        } for team in data])
+    else:
+        st.error(f"Die Tabelle konnte nicht geladen werden. Status Code: {response.status_code}")
+        return
 
     # --- Punkteberechnung ---
     def berechne_punkte_und_spiele(liste):
         gesamtpunkte, gesamtspiele = 0, 0
         punkte_teams = []
         for team in liste:
-            team_data = df.loc[df['Team'].str.contains(team, case=False), ['Team','Punkte','Sp.']]
+            team_data = df.loc[df['Team'].str.contains(team, case=False), ['Team', 'Punkte', 'Sp.']]
             if not team_data.empty:
-                punkte = team_data['Punkte'].iloc[0]
+                punkte = int(team_data['Punkte'].iloc[0])
                 gesamtpunkte += punkte
-                gesamtspiele += team_data['Sp.'].iloc[0]
+                gesamtspiele += int(team_data['Sp.'].iloc[0])
                 punkte_teams.append((team, punkte))
             else:
                 punkte_teams.append((team, 0))
@@ -176,6 +164,8 @@ def show_app():
 
     listen = tipps_dict[season_key]
     ergebnisse = {name: berechne_punkte_und_spiele(liste) for name, liste in listen.items()}
+
+    # Hier kannst du wie im ersten Code die restlichen Bereiche (Rangliste, Einzelteams, Top-6, Bestenliste, Statistik, usw.) übernehmen.
 
     # --- Abstand und Linie ---
     st.markdown("<hr><br>", unsafe_allow_html=True)
@@ -603,7 +593,7 @@ def show_app():
 
 
 
-
+# --- Passwortabfrage ---
 if not st.session_state.authenticated:
     eingabe = st.text_input("🔑 Passwort eingeben:", type="password")
     if st.button("Login"):
@@ -611,8 +601,9 @@ if not st.session_state.authenticated:
             st.session_state.authenticated = True
             st.success("✅ Zugriff gewährt!")
             st.info("✅ Passwort korrekt – hier wird jetzt der komplette Tippspiel-Inhalt angezeigt.")
-            show_app()  # alles innerhalb der if-Bedingung
+            show_app()
         else:
             st.error("❌ Falsches Passwort")
 else:
-    show_app()  # nicht eingerückt!
+    show_app()
+
